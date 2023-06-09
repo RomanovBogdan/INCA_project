@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, \
     ElementClickInterceptedException
@@ -61,10 +62,10 @@ class ScrapperWithPageNum:
         return content
 
 
-scapper = ScrapperWithPageNum('https://blogs.microsoft.com')
+scapper = ScrapperWithPageNum('https://news.microsoft.com/category/press-releases')
 info_list = []
 driver = start_driver()
-for i in range(2, 226): #226 is the MAX value
+for i in range(1, 10): #1034 is the MAX value
     webpage = scapper.select_page('/page/', i)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
     for link in links:
@@ -72,9 +73,11 @@ for i in range(2, 226): #226 is the MAX value
         driver.get(link)
 
         datetime_element = driver.find_element(By.XPATH, "//time")
-        date = datetime_element.get_attribute("datetime")
+        date_timestamp = datetime_element.get_attribute("datetime")
+        dt_object = datetime.fromtimestamp(int(date_timestamp))
+        date = dt_object.strftime('%Y-%m-%d')
 
-        text_element = scapper.collect_text(By.XPATH, '//article')
+        text_element = scapper.collect_text(By.XPATH, '//section')
         text = text_element.text
 
         info_list.append({'url': link,
