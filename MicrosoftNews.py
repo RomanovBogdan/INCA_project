@@ -21,8 +21,8 @@ def start_driver():
     return driver
 
 
-def collect_links(driver, link, by, article_element):
-    driver.get(link)
+def collect_links(driver, url, by, article_element):
+    driver.get(url)
     elements = driver.find_elements(by,
                                     article_element)
     links = [el.get_attribute('href') for el in elements]
@@ -33,40 +33,46 @@ class ScrapperWithPageNum:
     def __init__(self, main_body):
         self.main_body = main_body
 
-    def select_page(self, param_body, i):
-        news_link = f'{self.main_body}{param_body}{i}/'
+    def select_page(self, param_body, iterating_number):
+        news_link = f'{self.main_body}{param_body}{iterating_number}/'
 
         return news_link
 
-    def collect_links(self, soup, element, html_class):
+    @staticmethod
+    def collect_links(soup, element, html_class):
         article_element = soup.find(element, html_class)
         a_tags = article_element.find_all('a')
-        links = [tag.get('href') for tag in a_tags]
+        urls = [tag.get('href') for tag in a_tags]
 
-        return links
+        return urls
 
-    def collect_date(self, by, date_element):
+    @staticmethod
+    def collect_date(by, date_element):
         return driver.find_element(by, date_element)
 
-    def collect_category(self, by, category_element):
+    @staticmethod
+    def collect_category(by, category_element):
         return driver.find_element(by, category_element)
 
-    def collect_text(self, by, text_element):
+    @staticmethod
+    def collect_text(by, text_element):
         return driver.find_element(by, text_element)
 
-    def collect_content(self, link, article_element):
-        r = requests.get(link)
+    @staticmethod
+    def collect_content(self, url, article_element):
+        r = requests.get(url)
         soup = BeautifulSoup(r.content, 'html.parser')
         content = soup.find('article', re.compile(f'^{article_element}'))
 
         return content
 
 
-scapper = ScrapperWithPageNum('https://news.microsoft.com/category/press-releases')
-info_list = []
+scrapper = ScrapperWithPageNum('https://news.microsoft.com/category/press-releases')
+
+scrapped_list = []
 driver = start_driver()
-for i in range(1, 10): #1034 is the MAX value
-    webpage = scapper.select_page('/page/', i)
+for i in range(1, 10):  # 1034 is the MAX value
+    webpage = scrapper.select_page('/page/', i)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
     for link in links:
         print(link)
@@ -77,15 +83,15 @@ for i in range(1, 10): #1034 is the MAX value
         dt_object = datetime.fromtimestamp(int(date_timestamp))
         date = dt_object.strftime('%Y-%m-%d')
 
-        text_element = scapper.collect_text(By.XPATH, '//section')
+        text_element = scrapper.collect_text(By.XPATH, '//section')
         text = text_element.text
 
-        info_list.append({'url': link,
-                          'date': date,
-                          'category': '---',
-                          'text': text
-                          })
+        scrapped_list.append({'url': link,
+                              'date': date,
+                              'category': '---',
+                              'text': text
+                              })
         time.sleep(random.randint(0, 3))
 
-test = pd.DataFrame(info_list)
+scrapped_dt = pd.DataFrame(scrapped_list)
 # test.to_csv('apple_newsroom_text.csv')

@@ -121,12 +121,10 @@ def clean_text(text):
 
     return cleaned_text
 
-# amazon_news = pd.read_csv('amazon_news_link.csv', index_col=0)
-# amazon_news = amazon_news.drop_duplicates()
 amazon_press = pd.read_csv('amazon_press_link.csv', index_col=0)
 amazon_press = amazon_press.drop_duplicates()
 
-info_list = []
+scrapped_list = []
 for link in amazon_press['0']:
     print(link)
     text = []
@@ -147,12 +145,11 @@ for link in amazon_press['0']:
     except TypeError:
         print('Could not collect text')
 
-    info_list.append({'url': link,
+    scrapped_list.append({'url': link,
                  'date': date,
                  'category': '---',
                  'text': text
                  })
 
-test_df = pd.DataFrame(info_list)
-
-test_df.to_csv('amazon_press_text.csv')
+scrapped_df = pd.DataFrame(scrapped_list)
+scrapped_df.to_csv('amazon_press_text.csv')

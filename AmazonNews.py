@@ -10,20 +10,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 
-test = {'https://blog.google': ['article-list__load-more--cards js-load-more-button', 'feed-article ng-scope'],
-        # cannot set up both load-more and articles' links
-        'https://about.fb.com/news/': ['CLASS_NAME',
-                                       'show-more-wrapper',
-                                       'CSS_SELECTOR',
-                                       'article-preview article-card loop-card show has-image post-'],
-        # FB load-more works, but I cannot collect the articles' links
-        'https://www.aboutamazon.com/news': ['SearchResultsModuleResults-nextPage-button',
-                                             '//div[@class="PromoCardSearchResults-title"]//a'],
-        'https://press.aboutamazon.com/press-release-archive': '',
-        'https://www.apple.com/newsroom/': '',
-        'https://news.microsoft.com/category/press-releases/page/1/': '',
-        'https://blogs.microsoft.com/page/2/': ''}
-
 amazon_press = {'link': 'https://press.aboutamazon.com/press-release-archive',
                 'by_1': By.CLASS_NAME,
                 'button_element': 'SearchResultsModuleResults-nextPage-button',
@@ -41,7 +27,7 @@ amazon_news = {'link': 'https://www.aboutamazon.com/news',
 sources = {'amazon_press': amazon_press, 'amazon_news': amazon_news}
 
 
-class GAFAM_scrapper:
+class GAFAMScrapper:
     def __init__(self, link, by_1, button_element, by_2, article_element):
         self.link = link
         self.by_1 = by_1
@@ -65,17 +51,16 @@ class GAFAM_scrapper:
         return links
 
     def find_click_next_page(self, driver):
-        all_links = []  # initialize the list to store all links
-        num_links = 0  # keep track of the number of links collected so far
+        all_links = []
+        num_links = 0
 
         while True:
             try:
-                # collect links on the current page
                 elements = driver.find_elements(self.by_2, self.article_element)
-                new_links = [el.get_attribute('href') for el in elements[num_links:]]  # only collect new links
-                all_links.extend(new_links)  # add the new links to our list
+                new_links = [el.get_attribute('href') for el in elements[num_links:]]
+                all_links.extend(new_links)
 
-                num_links = len(elements)  # update the number of links collected so far
+                num_links = len(elements)
 
                 next_page = driver.find_element(self.by_1, self.button_element)
                 next_page.click()
@@ -90,7 +75,7 @@ class GAFAM_scrapper:
                 print(3)
                 continue
 
-        return all_links  # return the collected links when there are no more pages
+        return all_links
 
 
 # for name, source in sources.items():
@@ -121,13 +106,12 @@ def clean_text(text):
 
     return cleaned_text
 
-# amazon_news = pd.read_csv('amazon_news_link.csv', index_col=0)
-# amazon_news = amazon_news.drop_duplicates()
-amazon_press = pd.read_csv('amazon_press_link.csv', index_col=0)
-amazon_press = amazon_press.drop_duplicates()
 
-info_list = []
-for link in amazon_press['0']:
+amazon_news = pd.read_csv('amazon_news_link.csv', index_col=0)
+amazon_news = amazon_news.drop_duplicates()
+
+scrapped_list = []
+for link in amazon_news['0']:
     print(link)
     text = []
 
@@ -147,12 +131,11 @@ for link in amazon_press['0']:
     except TypeError:
         print('Could not collect text')
 
-    info_list.append({'url': link,
-                 'date': date,
-                 'category': '---',
-                 'text': text
-                 })
+    scrapped_list.append({'url': link,
+                          'date': date,
+                          'category': '---',
+                          'text': text
+                          })
 
-test_df = pd.DataFrame(info_list)
-
-test_df.to_csv('amazon_press_text.csv')
+scrapped_df = pd.DataFrame(scrapped_list)
+scrapped_df.to_csv('amazon_news_text.csv')

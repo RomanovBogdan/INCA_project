@@ -37,35 +37,40 @@ class ScrapperWithPageNum:
 
         return news_link
 
-    def collect_links(self, soup, element, html_class):
+    @staticmethod
+    def collect_links(soup, element, html_class):
         article_element = soup.find(element, html_class)
         a_tags = article_element.find_all('a')
-        links = [tag.get('href') for tag in a_tags]
+        urls = [tag.get('href') for tag in a_tags]
 
-        return links
+        return urls
 
-    def collect_date(self, by, date_element):
+    @staticmethod
+    def collect_date(by, date_element):
         return driver.find_element(by, date_element)
 
-    def collect_category(self, by, category_element):
+    @staticmethod
+    def collect_category(by, category_element):
         return driver.find_element(by, category_element)
 
-    def collect_text(self, by, text_element):
+    @staticmethod
+    def collect_text(by, text_element):
         return driver.find_element(by, text_element)
 
-    def collect_content(self, link, article_element):
-        r = requests.get(link)
+    @staticmethod
+    def collect_content(self, url, article_element):
+        r = requests.get(url)
         soup = BeautifulSoup(r.content, 'html.parser')
         content = soup.find('article', re.compile(f'^{article_element}'))
 
         return content
 
 
-scapper = ScrapperWithPageNum('https://blogs.microsoft.com')
+scrapper = ScrapperWithPageNum('https://blogs.microsoft.com')
 info_list = []
 driver = start_driver()
-for i in range(2, 226): #226 is the MAX value
-    webpage = scapper.select_page('/page/', i)
+for i in range(2, 226):  # 226 is the MAX value
+    webpage = scrapper.select_page('/page/', i)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
     for link in links:
         print(link)
@@ -74,7 +79,7 @@ for i in range(2, 226): #226 is the MAX value
         datetime_element = driver.find_element(By.XPATH, "//time")
         date = datetime_element.get_attribute("datetime")
 
-        text_element = scapper.collect_text(By.XPATH, '//article')
+        text_element = scrapper.collect_text(By.XPATH, '//article')
         text = text_element.text
 
         info_list.append({'url': link,
