@@ -67,7 +67,7 @@ class ScrapperWithPageNum:
 
 
 scrapper = ScrapperWithPageNum('https://blogs.microsoft.com')
-info_list = []
+scrapped_list = []
 driver = start_driver()
 for i in range(2, 226):  # 226 is the MAX value
     webpage = scrapper.select_page('/page/', i)
@@ -75,19 +75,22 @@ for i in range(2, 226):  # 226 is the MAX value
     for link in links:
         print(link)
         driver.get(link)
+        try:
+            datetime_element = driver.find_element(By.XPATH, "//time")
+            date = datetime_element.get_attribute("datetime")
 
-        datetime_element = driver.find_element(By.XPATH, "//time")
-        date = datetime_element.get_attribute("datetime")
-
-        text_element = scrapper.collect_text(By.XPATH, '//article')
-        text = text_element.text
-
-        info_list.append({'url': link,
+            text_element = scrapper.collect_text(By.XPATH, '//article')
+            text = text_element.text
+        except NoSuchElementException:
+            date = None
+            text = None
+        scrapped_list.append({'url': link,
                           'date': date,
                           'category': '---',
                           'text': text
                           })
+
         time.sleep(random.randint(0, 3))
 
-test = pd.DataFrame(info_list)
-# test.to_csv('apple_newsroom_text.csv')
+scrapped_df = pd.DataFrame(scrapped_list)
+scrapped_df.to_csv('microsoft_blog_text.csv')

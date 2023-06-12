@@ -71,27 +71,33 @@ scrapper = ScrapperWithPageNum('https://news.microsoft.com/category/press-releas
 
 scrapped_list = []
 driver = start_driver()
-for i in range(1, 10):  # 1034 is the MAX value
+for i in range(1, 535):  # 1034 is the MAX value
     webpage = scrapper.select_page('/page/', i)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
     for link in links:
         print(link)
         driver.get(link)
+        try:
+            datetime_element = driver.find_element(By.XPATH, "//time")
+            try:
+                date_timestamp = datetime_element.get_attribute("datetime")
+                dt_object = datetime.fromtimestamp(int(date_timestamp))
+                date = dt_object.strftime('%Y-%m-%d')
+            except ValueError:
+                dt_object = re.findall('(?<=)(.*?)(?=T)', str(date_timestamp))
+                date = dt_object[0]
 
-        datetime_element = driver.find_element(By.XPATH, "//time")
-        date_timestamp = datetime_element.get_attribute("datetime")
-        dt_object = datetime.fromtimestamp(int(date_timestamp))
-        date = dt_object.strftime('%Y-%m-%d')
-
-        text_element = scrapper.collect_text(By.XPATH, '//section')
-        text = text_element.text
-
+            text_element = scrapper.collect_text(By.XPATH, '//section')
+            text = text_element.text
+        except NoSuchElementException:
+            date = None
+            text = None
         scrapped_list.append({'url': link,
                               'date': date,
-                              'category': '---',
+                              'category': None,
                               'text': text
                               })
         time.sleep(random.randint(0, 3))
 
-scrapped_dt = pd.DataFrame(scrapped_list)
-# test.to_csv('apple_newsroom_text.csv')
+scrapped_df = pd.DataFrame(scrapped_list)
+scrapped_df.to_csv('microsoft_news_text_1.csv')
