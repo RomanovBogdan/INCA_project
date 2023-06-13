@@ -10,74 +10,52 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 
-facebook_news = {'link': 'https://about.fb.com/news/',
-                'by_1': By.CLASS_NAME,
-                'button_element': 'show-more-wrapper',
-                'by_2': By.CSS_SELECTOR,
-                'article_element': 'article-preview article-card loop-card show has-image post-'
-                }
+link_list = []
+for page_number in range(1, 211):  # 210 is the MAX page_number
 
+    r = requests.get(f'https://about.fb.com/news/page/{page_number}/')
 
-class GAFAM_scrapper:
-    def __init__(self, link, by_1, button_element, by_2, article_element):
-        self.link = link
-        self.by_1 = by_1
-        self.button_element = button_element
-        self.by_2 = by_2
-        self.article_element = article_element
+    soup = BeautifulSoup(r.content, 'html.parser')
 
-    def start_driver(self):
-        chrome_driver_path = './chromedriver_mac64/chromedriver'
-        service = Service(executable_path=chrome_driver_path)
+    posts_div = soup.find('div', class_='posts')
+    links = posts_div.find_all('a', href=True)
+    for link in links:
+        link_list.append(link['href'])
 
-        driver = webdriver.Chrome(service=service)
-        driver.maximize_window()
-        driver.get(self.link)
-        return driver
+links_df = pd.DataFrame(link_list)
+links_df = links_df.drop_duplicates().reset_index(drop=True)
+links_df.to_csv('facebook_news_links.csv')
 
-    def collect_links(self, driver):
-        elements = driver.find_elements(self.by_2,
-                                        self.article_element)
-        links = [el.get_attribute('href') for el in elements]
-        return links
+scrapped_list = []
+for num, link in enumerate(links_df[0]):
+    print(num)
+    r = requests.get(link)
+    soup = BeautifulSoup(r.content, 'html.parser')
 
-    def find_click_next_page(self, driver):
-        all_links = []  # initialize the list to store all links
-        num_links = 0  # keep track of the number of links collected so far
+    try:
+        date = soup.find('time')['datetime']
+        date = re.findall('(?<=)(.*?)(?=T)', str(date))
+        date = date[0]
 
-        while True:
-            try:
-                # collect links on the current page
-                elements = driver.find_elements(self.by_2, self.article_element)
-                new_links = [el.get_attribute('href') for el in elements[num_links:]]  # only collect new links
-                all_links.extend(new_links)  # add the new links to our list
+        #date_string = '2023-05-17T10:00:10-07:00'
+        #date_only = date_string.split('T')[0]
 
-                num_links = len(elements)  # update the number of links collected so far
+        text = soup.find('div', 'uk-width-2-3@m article-container').get_text()
+        text_cl = re.sub('\t', '', text)
+        text_cl = re.sub('\n', ' ', text_cl)
+        text = re.sub(' +', ' ', text_cl)
 
-                next_page = driver.find_element(self.by_1, self.button_element)
-                next_page.click()
-                time.sleep(random.randint(0, 4))
-            except NoSuchElementException:
-                print(1)
-                break
-            except StaleElementReferenceException:
-                print(2)
-                continue
-            except ElementClickInterceptedException:
-                print(3)
-                continue
+    except TypeError:
+        date = None
+        text = None
 
-        return all_links  # return the collected links when there are no more pages
+    scrapped_list.append({'url': link,
+                          'date': date,
+                          'category': None,
+                          'text': text
+                          })
+    time.sleep(random.randint(0,3))
 
-
-try:
-    all_links = []
-    scrapper = GAFAM_scrapper(facebook_news['link'],
-                              facebook_news['by_1'],
-                              facebook_news['button_element'],
-                              facebook_news['by_2'],
-                              facebook_news['article_element'])
-    driver = scrapper.start_driver()
-    all_links = scrapper.find_click_next_page(driver)
-except:
-    print('Oops')
+scrapped_df = pd.DataFrame(scrapped_list)
+print(scrapped_df)
+scrapped_df.to_csv('facebook_news_text.csv')
