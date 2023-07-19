@@ -5,69 +5,70 @@ import ssl
 from langdetect import detect
 import pycountry
 
+class LanguageProcessing:
 
-try:
-    _create_unverified_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
-else:
-    ssl._create_default_https_context = _create_unverified_https_context
+    def __init__(self, json_file):
+        self.json_file = json_file
+        self.texts = None
+        self.mt = dlt.TranslationModel()
 
-def define_iso_code(texts):
-    lang_list = []
-    for text in texts:
+    @staticmethod
+    def _create_ssl_context():
         try:
-            lang = detect(text)
-            lang_list.append(lang)
-        except:
-            lang_list.append('unknown')
-    return lang_list
+            _create_unverified_https_context = ssl._create_unverified_context
+        except AttributeError:
+            pass
+        else:
+            ssl._create_default_https_context = _create_unverified_https_context
 
-def get_language_name(code):
-    try:
-        lang = pycountry.languages.get(alpha_2=code) # for ISO 639-1 language codes
-        return lang.name
-    except AttributeError:
+    @staticmethod
+    def define_iso_code(texts):
+        lang_list = []
+        for text in texts:
+            try:
+                lang = detect(text)
+                lang_list.append(lang)
+            except:
+                lang_list.append('unknown')
+        return lang_list
+
+    @staticmethod
+    def get_language_name(code):
         try:
-            lang = pycountry.languages.get(alpha_3=code) # for ISO 639-2/3 language codes
+            lang = pycountry.languages.get(alpha_2=code)
             return lang.name
         except AttributeError:
-            return "unknown"
+            try:
+                lang = pycountry.languages.get(alpha_3=code)
+                return lang.name
+            except AttributeError:
+                return "unknown"
 
-# def translate_sentences(sents, source_lang, max_length):
-#     return " ".join(mt.translate(sents, source=source_lang,
-#                                  target=dlt.lang.ENGLISH,
-#                                  generation_options=dict(max_length=max_length)))
+    def translate_sentences(self, sents, source_lang_attr, max_length=1024):
+        source_lang = getattr(dlt.lang, source_lang_attr.split(".")[-1])
+        return " ".join(self.mt.translate(sents, source=source_lang,
+                                          target=dlt.lang.ENGLISH,
+                                          generation_options=dict(max_length=max_length)))
 
-def translate_sentences(sents, source_lang_attr, max_length):
-    source_lang = getattr(dlt.lang, source_lang_attr.split(".")[-1])
-    return " ".join(mt.translate(sents, source=source_lang,
-                                 target=dlt.lang.ENGLISH,
-                                 generation_options=dict(max_length=max_length)))
+    def process_texts(self):
+        nltk.download('punkt')
+        self._create_ssl_context()
+        df = pd.read_json(self.json_file, lines=True)
+        self.texts = pd.DataFrame(df['body'])
+        self.texts['iso_code'] = self.define_iso_code(self.texts.body)
+        self.texts['full_lang'] = [self.get_language_name(iso_code) for iso_code in self.texts['iso_code']]
+        self.texts['full_lang_caps'] = [lang.upper() for lang in self.texts['full_lang']]
+        self.texts.dropna(subset=['body'], inplace=True)
+        self.texts.reset_index(inplace=True, drop=True)
 
+    def translate_texts(self):
+        texts_translation = []
+        for row in self.texts.iterrows():
+            sents = nltk.tokenize.sent_tokenize(row[1][0])
+            translated_text = self.translate_sentences(sents, row[1][2])
+            texts_translation.append(translated_text)
+        return texts_translation
 
-nltk.download
-nltk.download('punkt')
-
-df = pd.read_json('Factiva_pipeline/part-000000000000.json', lines=True)
-texts = pd.DataFrame(df['body'])
-print('Separated texts')
-texts['iso_code'] = define_iso_code(texts.body)
-texts['full_lang'] = [get_language_name(iso_code) for iso_code in texts['iso_code']]
-texts['full_lang_caps'] = [lang.upper() for lang in texts['full_lang']]
-texts.dropna(subset=['body'], inplace=True)
-texts.reset_index(inplace=True, drop=True)
-print('Prepared texts for translation')
-
-mt = dlt.TranslationModel()
-texts_translation = []
-for row in texts[:3].iterrows():
-    sents = nltk.tokenize.sent_tokenize(row[1][0], row[1][2])
-    translated_sent = mt.translate(sents, source=dlt.lang.ENGLISH,
-                                     target=dlt.lang.RUSSIAN,
-                                     generation_options=dict(max_length=1024))
-    print(translated_sent)
-    translated_text = " ".join(translated_sent)
-    # test = translate_sentences(sents, row[1][3], 1024)
-    texts_translation.append(translated_text)
-
+processor = LanguageProcessing('Factiva_pipeline/part-000000000000.json')
+processor.process_texts()
+translations = processor.translate_texts()
