@@ -7,7 +7,7 @@ import pycountry
 
 # nltk.download
 # nltk.download('punkt')
-FACTIVE_FILE_PATH = ''
+FACTIVA_FILE_PATH = ''
 
 class LanguageProcessing:
 
@@ -73,7 +73,7 @@ class LanguageProcessing:
         return texts_translation
 
 
-processor = LanguageProcessing(FACTIVE_FILE_PATH)
+processor = LanguageProcessing(FACTIVA_FILE_PATH)
 processor.process_texts()
 df = processor.texts
 print('Processing is done')
