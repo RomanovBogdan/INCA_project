@@ -5,6 +5,10 @@ import ssl
 from langdetect import detect
 import pycountry
 
+# nltk.download
+# nltk.download('punkt')
+FACTIVE_FILE_PATH = ''
+
 class LanguageProcessing:
 
     def __init__(self, json_file):
@@ -45,30 +49,33 @@ class LanguageProcessing:
                 return "unknown"
 
     def translate_sentences(self, sents, source_lang_attr, max_length=1024):
-        source_lang = getattr(dlt.lang, source_lang_attr.split(".")[-1])
-        return " ".join(self.mt.translate(sents, source=source_lang,
+        return " ".join(self.mt.translate(sents,
+                                          source=source_lang_attr,
                                           target=dlt.lang.ENGLISH,
                                           generation_options=dict(max_length=max_length)))
 
     def process_texts(self):
-        nltk.download('punkt')
         self._create_ssl_context()
         df = pd.read_json(self.json_file, lines=True)
         self.texts = pd.DataFrame(df['body'])
         self.texts['iso_code'] = self.define_iso_code(self.texts.body)
         self.texts['full_lang'] = [self.get_language_name(iso_code) for iso_code in self.texts['iso_code']]
-        self.texts['full_lang_caps'] = [lang.upper() for lang in self.texts['full_lang']]
         self.texts.dropna(subset=['body'], inplace=True)
         self.texts.reset_index(inplace=True, drop=True)
 
     def translate_texts(self):
         texts_translation = []
-        for row in self.texts.iterrows():
-            sents = nltk.tokenize.sent_tokenize(row[1][0])
+        for row in self.texts.loc[:1, :].iterrows():
+            sents = nltk.tokenize.sent_tokenize(row[1][0], row[1][2])
+            print('one sentence is done')
             translated_text = self.translate_sentences(sents, row[1][2])
             texts_translation.append(translated_text)
         return texts_translation
 
-processor = LanguageProcessing('Factiva_pipeline/part-000000000000.json')
+
+processor = LanguageProcessing(FACTIVE_FILE_PATH)
 processor.process_texts()
+df = processor.texts
+print('Processing is done')
+
 translations = processor.translate_texts()
