@@ -1,6 +1,6 @@
 import spacy
 
-# you should pre-install the `en_core_web_sm` model, before loading it
+# you should pre-install the `en_core_web_sm` model before loading it
 # python3 -m spacy download en_core_web_sm
 nlp = spacy.load("en_core_web_sm")
 
