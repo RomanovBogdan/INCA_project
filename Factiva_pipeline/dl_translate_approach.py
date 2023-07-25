@@ -73,9 +73,16 @@ class LanguageProcessing:
         return texts_translation
 
 
-processor = LanguageProcessing(FACTIVA_FILE_PATH)
-processor.process_texts()
-df = processor.texts
-print('Processing is done')
+# processor = LanguageProcessing(FACTIVA_FILE_PATH)
+# processor.process_texts()
+# df = processor.texts
+# print('Processing is done')
 
-translations = processor.translate_texts()
+# translations = processor.translate_texts()
+
+""" help me out by preparing a function that takes a piece of text in english and cleans it the following way: 
+removes all words that are not nouns, verbs, adjectives, 
+lemmatizes the latter and returns them in one chunk of text where words are separated by spaces. 
+I would probably use spacy for that, but anything that works well is fine.
+"""
+
