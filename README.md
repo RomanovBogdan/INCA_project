@@ -1,7 +1,4 @@
 # INCA project
-
-![logo](https://inca-project.eu/wp-content/uploads/2022/11/inca_logo_sm.png)
-
 This repository is a part of the INCA project, where University of Tartu is responsible for data gathering and consequent processing. 
 
 ## Project's objective
@@ -27,4 +24,7 @@ Besides, may we define forms to sustain new models of governance capable to comb
 11. Elhuyar
 
 ## Funding:
-The project is dunded by the European Union under G.A. Nº 101061653.
+The project is funded by the European Union under G.A. Nº 101061653.
+
+![logo](https://inca-project.eu/wp-content/uploads/2022/11/inca_logo_sm.png)
+
