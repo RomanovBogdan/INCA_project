@@ -49,6 +49,8 @@ def collect_text_from_PDF(paths):
         print(i)
         try:
             text_pdf = extract_text_from_pdf(pdf_path)
+            if len(text_pdf) < 1500:
+                text_pdf = extract_text_from_image(pdf_path)
             if not text_pdf:
                 raise ValueError("No text extracted from PDF")
         except:
@@ -60,28 +62,17 @@ def collect_text_from_PDF(paths):
                               'text': clean_text(text_pdf)})
     return data_list
 
-
-def collect_missing_text(text_df):
-    subset = text_df[text_df['text'].str.len() == 0].reset_index(drop=True)
-    for i, link in enumerate(subset.link):
-        text = extract_text_from_image(link)
-        subset.loc[i, 'text'] = text
-    return subset
-
-
-def merge_datasets(df1, df2):
-    df1.set_index('link', inplace=True)
-    df2.set_index('link', inplace=True)
-
-    df1.update(missing_text_df)
-    df1.reset_index(inplace=True)
-    return df1
+def add_spaces_to_text(text):
+    # Add spaces after punctuation marks and before capitalized words
+    text_with_spaces = re.sub(r'([.!?,:;])(\w)', r'\1 \2', text)
+    text_with_spaces = re.sub(r'(\w)([A-Z])', r'\1 \2', text_with_spaces)
+    return text_with_spaces
 
 pdf_paths = get_files_from_folder('Task_2_DSA_position_papers')
 text_list = collect_text_from_PDF(pdf_paths)
 text_df = pd.DataFrame(text_list)
-missing_text_df = collect_missing_text(text_df)
 
-final_text_df = merge_datasets(text_df, missing_text_df)
-final_text_df.drop('link', inplace=True, axis=1)
-final_text_df.to_csv('DSA_position_paper.csv')
+text_df['len'] = [len(text) for text in text_df.text]
+add_spaces_to_text(text_df.text[0])
+
+text_df.to_csv('DSA_position_paper_improved.csv')
