@@ -89,7 +89,6 @@ for i in range(2, 226):  # 226 is the MAX value
                           'category': '---',
                           'text': text
                           })
-
         time.sleep(random.randint(0, 3))
 
 scrapped_df = pd.DataFrame(scrapped_list)
