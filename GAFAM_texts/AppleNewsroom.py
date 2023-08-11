@@ -34,6 +34,7 @@ class ScrapperWithPageNum:
     @staticmethod
     def collect_text(content, element):
         # div, 'hero-headline', 'pagebody text component'
+
         return content.find(element).get_text()
 
     def collect_content(self, link):
