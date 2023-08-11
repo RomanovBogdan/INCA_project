@@ -45,7 +45,7 @@ main_body = 'https://blogs.microsoft.com/'
 last_page = 4
 
 driver = start_driver()
-for page_number in range(1, last_page):  # 226 is the MAX value
+for page_number in range(1, last_page):  # 227 is the MAX value
     print(f"Processing page {page_number} of {last_page - 1}...")
     webpage = select_page(main_body, '/page/', page_number)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')

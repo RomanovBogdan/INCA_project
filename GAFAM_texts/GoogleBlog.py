@@ -1,44 +1,40 @@
 import pandas as pd
 import requests
 import re
-from datetime import datetime
 import json
 from bs4 import BeautifulSoup
+from datetime import datetime
 
+scraped_list = []
+last_cursor = 3
 
-def log(message: str, page_url):
-    logfile = f"google_log.txt"
-    timestamp_format = '%Y-%h-%d-%H:%M:%S'
-    now = datetime.now()
-    timestamp = now.strftime(timestamp_format)
-    with open(logfile, "a") as f:
-        f.write(timestamp + ', ' + f'{message}' + ': ' + f'{page_url}' + '\n')
-
-info_list = []
-for cursor in range(1, 702):
+for cursor in range(1, last_cursor): # max(last_cursor) == 710
+    print(f"Processing page {cursor} of {last_cursor - 1}...")
     url = f"https://blog.google/api/v2/latest?cursor={cursor}"
-    log('Collecting the data from the', url)
     response = requests.get(url)
-    test = json.loads(response.text)
-    for result in test['results']:
+    json_response = json.loads(response.text)
+    for article_number, result in enumerate(json_response['results']):
         date_element = result['published']
         date = re.findall('(?<='')(.*?)(?=T)', str(date_element))
-        log('Collecting date object, here it is', date)
 
-        category = result['category']
-        link = result['full_url']
-
-        r = requests.get(link)
+        r = requests.get(result['full_url'])
         soup = BeautifulSoup(r.content, 'html.parser')
         main_elements = soup.find_all('div', attrs={'class': 'rich-text'})
-        text = [i.get_text() for i in main_elements]
-        text = ' '.join(text)
+        text = ' '.join([i.get_text() for i in main_elements])
 
-        info_list.append({'url': link,
-                          'date': date[0],
-                          'category': category,
-                          'text': text
-                          })
+        scraped_list.append({'url': result['full_url'],
+                             'title': result['headline'],
+                             'date': datetime.strptime(date[0], '%Y-%m-%d'),
+                             'text': text
+                             })
+        print(f"\tProcessed link {article_number+1} of {len(json_response['results'])} on page {cursor}.")
 
-test = pd.DataFrame(info_list)
-test.to_csv('google_blog_text.csv')
+text_df = pd.DataFrame(scraped_list)
+
+for page_num in range(200, 230):
+    response = requests.get(f'https://blogs.microsoft.com/page/{page_num}/')
+    if response.status_code != 200:
+        print(f'The max page is {page_num}')
+        break
+    else:
+        print('Not yet')
