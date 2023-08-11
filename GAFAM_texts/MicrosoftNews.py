@@ -65,7 +65,7 @@ phrases_to_remove_after = [
 last_page = 1036
 driver = start_driver()
 
-for page_number in range(1, 1036):
+for page_number in range(1, last_page):
     print(f"Processing page {page_number} of {last_page - 1}...")
     webpage = select_page(main_body, '/page/', page_number)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
