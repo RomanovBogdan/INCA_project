@@ -1,21 +1,14 @@
 import random
 import time
-import re
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, \
-    ElementClickInterceptedException
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from datetime import datetime, timezone
+from bs4 import BeautifulSoup
 
-
-def start_driver():
-    chrome_driver_path = './chromedriver_mac64/chromedriver'
+def start_driver(chrome_driver_path):
     service = Service(executable_path=chrome_driver_path)
-
     driver = webdriver.Chrome(service=service)
     driver.maximize_window()
     return driver
@@ -23,81 +16,76 @@ def start_driver():
 
 def collect_links(driver, url, by, article_element):
     driver.get(url)
-    elements = driver.find_elements(by,
-                                    article_element)
+    elements = driver.find_elements(by, article_element)
     links = [el.get_attribute('href') for el in elements]
     return links
 
 
-class ScrapperWithPageNum:
-    def __init__(self, main_body):
-        self.main_body = main_body
-
-    def select_page(self, param_body, iterating_number):
-        news_link = f'{self.main_body}{param_body}{iterating_number}/'
-
-        return news_link
-
-    @staticmethod
-    def collect_links(soup, element, html_class):
-        article_element = soup.find(element, html_class)
-        a_tags = article_element.find_all('a')
-        urls = [tag.get('href') for tag in a_tags]
-
-        return urls
-
-    @staticmethod
-    def collect_date(by, date_element):
-        return driver.find_element(by, date_element)
-
-    @staticmethod
-    def collect_category(by, category_element):
-        return driver.find_element(by, category_element)
-
-    @staticmethod
-    def collect_text(by, text_element):
-        return driver.find_element(by, text_element)
-
-    @staticmethod
-    def collect_content(self, url, article_element):
-        r = requests.get(url)
-        soup = BeautifulSoup(r.content, 'html.parser')
-        content = soup.find('article', re.compile(f'^{article_element}'))
-
-        return content
+def select_page(main_body, param_body, iterating_number):
+    news_link = f'{main_body}{param_body}{iterating_number}/'
+    return news_link
 
 
-scrapper = ScrapperWithPageNum('https://news.microsoft.com/category/press-releases')
+def collect_title(by, title_element):
+    return driver.find_element(by, title_element).text
 
-scrapped_list = []
-driver = start_driver()
-for i in range(1, 335):  # 1034 is the MAX value
-    webpage = scrapper.select_page('/page/', i)
+def convert_timestamp(date_timestamp):
+    dt_object = datetime.fromtimestamp(int(date_timestamp), timezone.utc)
+    return dt_object
+
+def collect_text():
+    html_content = driver.page_source
+    soup = BeautifulSoup(html_content, 'html.parser')
+    entry_content = soup.find("div", "entry-content")
+    for i in entry_content.find_all('figure'):
+        i.extract()
+
+    text_list = [i.get_text() for i in entry_content.find_all('p')]
+    return text_list
+
+def filter_text(text_list, phrases_to_remove_after):
+    for i, text in enumerate(text_list):
+        if any(phrase in text for phrase in phrases_to_remove_after):
+            return text_list[:i]
+    return text_list
+
+main_body = 'https://news.microsoft.com/category/press-releases'
+scraped_list = []
+chrome_driver_path = './chromedriver-mac-arm64/chromedriver'
+iteration = 1
+phrases_to_remove_after = [
+    "For more information, press only:",
+    "For further information",
+    "Editor’s note ",
+    "Media Contacts"
+]
+
+
+last_page = 1036
+driver = start_driver(chrome_driver_path)
+
+for page_number in range(1, last_page):
+    webpage = select_page(main_body, '/page/', page_number)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
-    for link in links:
-        print(link)
+    for i, link in enumerate(links):
         driver.get(link)
-        try:
-            datetime_element = driver.find_element(By.XPATH, "//time")
-            try:
-                date_timestamp = datetime_element.get_attribute("datetime")
-                dt_object = datetime.fromtimestamp(int(date_timestamp))
-                date = dt_object.strftime('%Y-%m-%d')
-            except ValueError:
-                dt_object = re.findall('(?<=)(.*?)(?=T)', str(date_timestamp))
-                date = dt_object[0]
+        html_content = driver.page_source
+        soup = BeautifulSoup(html_content, 'html.parser')
+        title = soup.find("h1", "entry-title").get_text()
+        date_timestamp = soup.find("time")['datetime']
+        text_list = collect_text()
+        sorted_text = filter_text(text_list, phrases_to_remove_after)
+        scraped_list.append({'url': link,
+                             'title': title,
+                             'date': convert_timestamp(date_timestamp),
+                             'text': text_list,
+                             'len': len(text_list),
+                             'sorted_text': sorted_text,
+                             'len_sorted': len(sorted_text)
+                             })
 
-            text_element = scrapper.collect_text(By.XPATH, '//section')
-            text = text_element.text
-        except NoSuchElementException:
-            date = None
-            text = None
-        scrapped_list.append({'url': link,
-                              'date': date,
-                              'category': None,
-                              'text': text
-                              })
         time.sleep(random.randint(0, 3))
+        print(f'Collected {iteration} out of {len(links) * (last_page - 1)}')
+        iteration += 1
 
-scrapped_df = pd.DataFrame(scrapped_list)
-scrapped_df.to_csv('microsoft_news_text_1.csv')
+text_df = pd.DataFrame(scraped_list)
