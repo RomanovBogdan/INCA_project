@@ -57,6 +57,7 @@ phrases_to_remove_after = [
     "For more information, press only:",
     "For further information",
     "Editor’s note ",
+    'Note to editors: '
     "Media Contacts"
 ]
 
@@ -64,7 +65,7 @@ phrases_to_remove_after = [
 last_page = 1036
 driver = start_driver(chrome_driver_path)
 
-for page_number in range(1, last_page):
+for page_number in range(1033, 1036):
     webpage = select_page(main_body, '/page/', page_number)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
     for i, link in enumerate(links):
@@ -78,9 +79,9 @@ for page_number in range(1, last_page):
         scraped_list.append({'url': link,
                              'title': title,
                              'date': convert_timestamp(date_timestamp),
-                             'text': text_list,
+                             'text': ''.join(text_list),
                              'len': len(text_list),
-                             'sorted_text': sorted_text,
+                             'sorted_text': ''.join(sorted_text),
                              'len_sorted': len(sorted_text)
                              })
 
