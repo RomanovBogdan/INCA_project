@@ -1,61 +1,52 @@
 import random
-import re
 import time
 import pandas as pd
 import requests
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, \
-    ElementClickInterceptedException
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
+from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
-link_list = []
-for page_number in range(1, 211):  # 210 is the MAX page_number
 
-    r = requests.get(f'https://about.fb.com/news/page/{page_number}/')
+def collect_links(beautiful_soup, existing_links):
+    posts_div = beautiful_soup.find('div', class_='posts')
+    links = posts_div.find_all('a', href=True)
+    for one_link in links:
+        if one_link['href'] not in existing_links:
+            existing_links.append(one_link['href'])
 
+
+def convert_timestamp(date_timestamp):
+    dt_object = datetime.fromtimestamp(int(date_timestamp), timezone.utc)
+    return dt_object
+
+
+links_list = []
+for page_number in range(1, 5):
+    # CHANGE THE RANGE VALUES
+    # 213 is the MAX page_number
+    r = requests.get(f'https://about.fb.com/news/page/1/')
     soup = BeautifulSoup(r.content, 'html.parser')
 
-    posts_div = soup.find('div', class_='posts')
-    links = posts_div.find_all('a', href=True)
-    for link in links:
-        link_list.append(link['href'])
+    collect_links(soup, links_list)
 
-links_df = pd.DataFrame(link_list)
-links_df = links_df.drop_duplicates().reset_index(drop=True)
-links_df.to_csv('facebook_news_links.csv')
 
-scrapped_list = []
-for num, link in enumerate(links_df[0]):
-    print(num)
+scraped_list = []
+for link_number, link in enumerate(links_list):
     r = requests.get(link)
     soup = BeautifulSoup(r.content, 'html.parser')
 
-    try:
-        date = soup.find('time')['datetime']
-        date = re.findall('(?<=)(.*?)(?=T)', str(date))
-        date = date[0]
+    date = soup.find('time')['datetime']
+    date = pd.to_datetime(date)
 
-        # date_string = '2023-05-17T10:00:10-07:00'
-        # date_only = date_string.split('T')[0]
+    title = soup.find('header', 'entry-header').get_text()
 
-        text = soup.find('div', 'uk-width-2-3@m article-container').get_text()
-        text_cl = re.sub('\t', '', text)
-        text_cl = re.sub('\n', ' ', text_cl)
-        text = re.sub(' +', ' ', text_cl)
+    text = soup.find('div', 'entry-content').get_text()
 
-    except TypeError:
-        date = None
-        text = None
+    scraped_list.append({'url': link,
+                         'title': title,
+                         'date': date.to_pydatetime(),
+                         'text': text
+                         })
+    time.sleep(random.randint(2, 4))
+    print(f"\tProcessed link {link_number+1} of {len(links_list)}")
 
-    scrapped_list.append({'url': link,
-                          'date': date,
-                          'category': None,
-                          'text': text
-                          })
-    time.sleep(random.randint(0, 3))
-
-scrapped_df = pd.DataFrame(scrapped_list)
-print(scrapped_df)
-scrapped_df.to_csv('facebook_news_text.csv')
+scraped_df = pd.DataFrame(scraped_list)
