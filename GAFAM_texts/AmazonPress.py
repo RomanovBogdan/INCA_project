@@ -4,152 +4,97 @@ import time
 import pandas as pd
 import requests
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, \
-    ElementClickInterceptedException
+from datetime import datetime
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 
-test = {'https://blog.google': ['article-list__load-more--cards js-load-more-button', 'feed-article ng-scope'],
-        # cannot set up both load-more and articles' links
-        'https://about.fb.com/news/': ['CLASS_NAME',
-                                       'show-more-wrapper',
-                                       'CSS_SELECTOR',
-                                       'article-preview article-card loop-card show has-image post-'],
-        # FB load-more works, but I cannot collect the articles' links
-        'https://www.aboutamazon.com/news': ['SearchResultsModuleResults-nextPage-button',
-                                             '//div[@class="PromoCardSearchResults-title"]//a'],
-        'https://press.aboutamazon.com/press-release-archive': '',
-        'https://www.apple.com/newsroom/': '',
-        'https://news.microsoft.com/category/press-releases/page/1/': '',
-        'https://blogs.microsoft.com/page/2/': ''}
+def start_driver():
+    chrome_driver_path = './chromedriver-mac-arm64/chromedriver'
+    service = Service(executable_path=chrome_driver_path)
+    driver = webdriver.Chrome(service=service)
+    driver.maximize_window()
+    return driver
 
-amazon_press = {'link': 'https://press.aboutamazon.com/press-release-archive',
-                'by_1': By.CLASS_NAME,
-                'button_element': 'SearchResultsModuleResults-nextPage-button',
-                'by_2': By.XPATH,
-                'article_element': '//div[@class="PromoCardSearchResults-title"]//a'
-                }
+def collect_links(driver, existing_links):
+    title_elements = driver.find_elements(By.CLASS_NAME, 'PromoCardSearchResults-title')
+    len(title_elements)
+    for title_element in title_elements:
+        link_element = title_element.find_element(By.TAG_NAME, "a")
+        link_url = link_element.get_attribute('href')
+        if link_url not in existing_links:
+            existing_links.append(link_url)
 
-amazon_news = {'link': 'https://www.aboutamazon.com/news',
-               'by_1': By.CLASS_NAME,
-               'button_element': 'SearchResultsModuleResults-nextPage-button',
-               'by_2': By.XPATH,
-               'article_element': '//div[@class="PromoCardSearchResults-title"]//a'
-               }
+def press_next_page_button(driver):
+    next_page = driver.find_element(By.CLASS_NAME, 'SearchResultsModuleResults-nextPage-button')
+    next_page.click()
 
-sources = {'amazon_press': amazon_press, 'amazon_news': amazon_news}
+def collect_all_links():
+    main_body = 'https://press.aboutamazon.com/press-release-archive'
+    driver = start_driver()
+    driver.get(main_body)
+    all_links = []
+    i = 0
+    # CHANGE WHILE CONDITION
+    while i != 20:
+        collect_links(driver, all_links)
+        print(i, len(all_links))
+        press_next_page_button(driver)
+        time.sleep(random.randint(1, 4))
+        i += 1
+    return all_links
 
+def collect_text(soup):
+    entry_content = soup.find('article', class_=re.compile(r"-mainContent$"))
+    text_list = [i.get_text() for i in entry_content.find_all('p')]
+    return text_list
 
-class GAFAM_scrapper:
-    def __init__(self, link, by_1, button_element, by_2, article_element):
-        self.link = link
-        self.by_1 = by_1
-        self.button_element = button_element
-        self.by_2 = by_2
-        self.article_element = article_element
+def convert_to_datetime(date_string):
+    date_str = date_string[:-1]
+    date_obj = datetime.fromisoformat(date_str)
+    return date_obj
 
-    def start_driver(self):
-        chrome_driver_path = './chromedriver_mac64/chromedriver'
-        service = Service(executable_path=chrome_driver_path)
+def filter_text(text_list, phrases_to_remove_after):
+    for i, text in enumerate(text_list):
+        if any(phrase in text for phrase in phrases_to_remove_after):
+            return text_list[:i]
+    return text_list
 
-        driver = webdriver.Chrome(service=service)
-        driver.maximize_window()
-        driver.get(self.link)
-        return driver
-
-    def collect_links(self, driver):
-        elements = driver.find_elements(self.by_2,
-                                        self.article_element)
-        links = [el.get_attribute('href') for el in elements]
-        return links
-
-    def find_click_next_page(self, driver):
-        all_links = []  # initialize the list to store all links
-        num_links = 0  # keep track of the number of links collected so far
-
-        while True:
-            try:
-                # collect links on the current page
-                elements = driver.find_elements(self.by_2, self.article_element)
-                new_links = [el.get_attribute('href') for el in elements[num_links:]]  # only collect new links
-                all_links.extend(new_links)  # add the new links to our list
-
-                num_links = len(elements)  # update the number of links collected so far
-
-                next_page = driver.find_element(self.by_1, self.button_element)
-                next_page.click()
-                time.sleep(random.randint(0, 4))
-            except NoSuchElementException:
-                print(1)
-                break
-            except StaleElementReferenceException:
-                print(2)
-                continue
-            except ElementClickInterceptedException:
-                print(3)
-                continue
-
-        return all_links  # return the collected links when there are no more pages
+links = collect_all_links()
 
 
-# for name, source in sources.items():
-#     try:
-#         all_links = []
-#         scrapper = GAFAM_scrapper(source['link'],
-#                                   source['by_1'],
-#                                   source['button_element'],
-#                                   source['by_2'],
-#                                   source['article_element'])
-#         driver = scrapper.start_driver()
-#         all_links = scrapper.find_click_next_page(driver)
-#         links_df = pd.DataFrame(all_links).drop_duplicates()
-#         links_df.to_csv(f'{name}.csv')
-#     except Exception as e:
-#         print(f"Detected Ctrl+C! Saving data collected so far for {name}...")
-#         links_df = pd.DataFrame(all_links).drop_duplicates()
-#         links_df.to_csv(f'{name}_interrupted.csv')
-#         print("Data saved. Exiting...")
-#         break
+scraped_list = []
+phrases_to_remove_after = [
+    "About Amazon",
+    'About Amazon Web Services',
+    'About\xa0Amazon'
+]
 
-
-def clean_text(text):
-    pattern = r"Sign up for the weekly Amazon newsletter.*"
-
-    cleaned_text = re.sub('\n', '', text.strip())
-    cleaned_text = re.sub(pattern, '', cleaned_text)
-
-    return cleaned_text
-
-amazon_press = pd.read_csv('amazon_press_link.csv', index_col=0)
-amazon_press = amazon_press.drop_duplicates()
-
-scrapped_list = []
-for link in amazon_press['0']:
+link = 'https://press.aboutamazon.com/2020/2/amazon-expands-in-santa-barbara-and-announces-plans-to-create-150-tech-jobs-in-central-california'
+for link in links:
     print(link)
-    text = []
 
     r = requests.get(link)
     soup = BeautifulSoup(r.content, "html.parser")
-
     try:
-        date_element = soup.find('div', ['PressReleasePage-dates'])
-        date = re.findall('(?<=content=")(.*?)(?=T)', str(date_element))
-    except TypeError:
-        print('Could not collect date')
-    try:
-        article = soup.find('div', ['PressReleasePage-inner'])
-        for item in article:
-            text.append(item.get_text())
-        text = clean_text(' '.join(text))
-    except TypeError:
-        print('Could not collect text')
+        title = soup.find('h1').get_text()
 
-    scrapped_list.append({'url': link,
-                 'date': date,
-                 'category': '---',
-                 'text': text
-                 })
+        timestamp_element = soup.find('bsp-timestamp')
+        date_str = timestamp_element['data-timestamp-iso']
+        date_obj = convert_to_datetime(date_str)
 
-scrapped_df = pd.DataFrame(scrapped_list)
-scrapped_df.to_csv('amazon_press_text.csv')
+        text_list = collect_text(soup)
+
+    except AttributeError:
+        title = soup.find('module-details_title')
+
+    sorted_text_list = filter_text(text_list, phrases_to_remove_after)
+
+    scraped_list.append({'url': link,
+                         'title': title,
+                         'date': date_obj,
+                         'text': ' '.join(text_list),
+                         'sorted_text': ' '.join(sorted_text_list)
+                         })
+
+scraped_df = pd.DataFrame(scraped_list)
