@@ -84,12 +84,11 @@ for page_number in range(1, last_page):
 
         text_list = collect_text(soup)
 
-        sorted_text = filter_text(text_list, remove_phrases)
         scraped_list.append({'url': link,
                              'title': title,
                              'date': convert_timestamp(date_timestamp),
                              'text': ''.join(text_list),
-                             'sorted_text': ''.join(sorted_text)
+                             'sorted_text': ''.join(filter_text(text_list, remove_phrases))
                              })
 
         time.sleep(random.randint(0, 3))
