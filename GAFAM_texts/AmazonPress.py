@@ -40,7 +40,6 @@ amazon_news = {'link': 'https://www.aboutamazon.com/news',
 
 sources = {'amazon_press': amazon_press, 'amazon_news': amazon_news}
 
-
 class GAFAM_scrapper:
     def __init__(self, link, by_1, button_element, by_2, article_element):
         self.link = link
