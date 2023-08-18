@@ -1,4 +1,3 @@
-import re
 import time
 import random
 import requests
@@ -24,8 +23,8 @@ def collect_element(beautiful_soup, element, element_name):
     return beautiful_soup.find(element, element_name).get_text()
 
 
-def collect_content(url_main_body, link):
-    full_page_link = f'{url_main_body}{link}'
+def collect_content(url_main_body, article_link):
+    full_page_link = f'{url_main_body}{article_link}'
     # print(full_page_link)
     r = requests.get(full_page_link)
     beautiful_soup = BeautifulSoup(r.content, 'html.parser')
@@ -73,13 +72,13 @@ for page_number in range(1, last_page):
 
         date = collect_element(soup, 'span', 'category-eyebrow__date')
 
-        text = collect_text(soup)
+        text_list = collect_text(soup)
 
         scraped_list.append({'url': page_link,
                              'title': title,
                              'date': date,
-                             'text': text,
-                             'sorted_text': filter_text(text, remove_phrases)
+                             'text': ''.join(text_list),
+                             'sorted_text': ''.join(filter_text(text_list, remove_phrases))
                              })
 
         time.sleep(random.randint(1, 2))

@@ -11,50 +11,50 @@ from bs4 import BeautifulSoup
 def start_driver():
     chrome_driver_path = './chromedriver-mac-arm64/chromedriver'
     service = Service(executable_path=chrome_driver_path)
-    driver = webdriver.Chrome(service=service)
-    driver.maximize_window()
-    return driver
+    selenium_driver = webdriver.Chrome(service=service)
+    selenium_driver.maximize_window()
+    return selenium_driver
 
 
-def collect_links(driver, url, by, article_element):
-    driver.get(url)
-    elements = driver.find_elements(by, article_element)
-    links = [el.get_attribute('href') for el in elements]
-    return links
+def collect_links(selenium_driver, url, by, article_element):
+    selenium_driver.get(url)
+    elements = selenium_driver.find_elements(by, article_element)
+    article_links = [el.get_attribute('href') for el in elements]
+    return article_links
 
 
-def select_page(main_body, param_body, iterating_number):
-    news_link = f'{main_body}{param_body}{iterating_number}/'
+def select_page(url_main_body, param_body, iterating_number):
+    news_link = f'{url_main_body}{param_body}{iterating_number}/'
     return news_link
 
 
-def convert_timestamp(date_timestamp):
-    dt_object = datetime.fromtimestamp(int(date_timestamp), timezone.utc)
+def convert_timestamp(date_obj_timestamp):
+    dt_object = datetime.fromtimestamp(int(date_obj_timestamp), timezone.utc)
     return dt_object
 
 
-def collect_text(soup):
-    entry_content = soup.find("div", "entry-content")
+def collect_text(beautiful_soup):
+    entry_content = beautiful_soup.find("div", "entry-content")
     for i in entry_content.find_all('figure'):
         i.extract()
 
     for i in entry_content.find_all('p', 'tag-list'):
         i.extract()
 
-    text_list = [i.get_text() for i in entry_content.find_all('p')]
-    return text_list
+    text_data_list = [i.get_text() for i in entry_content.find_all('p')]
+    return text_data_list
 
 
-def filter_text(text_list, phrases_to_remove_after):
-    for i, text in enumerate(text_list):
+def filter_text(text_data_list, phrases_to_remove_after):
+    for i, text in enumerate(text_data_list):
         if any(phrase in text for phrase in phrases_to_remove_after):
-            return text_list[:i]
-    return text_list
+            return text_data_list[:i]
+    return text_data_list
 
 
 main_body = 'https://news.microsoft.com/category/press-releases'
 scraped_list = []
-phrases_to_remove_after = [
+remove_phrases = [
     "For more information, press only:",
     "For further information",
     "Editor’s note ",
@@ -65,18 +65,26 @@ phrases_to_remove_after = [
 last_page = 1036
 driver = start_driver()
 
-for page_number in range(1, last_page): # max(last_page) == 1035
+for page_number in range(1, last_page):
+    # max(last_page) == 1035
     print(f"Processing page {page_number} of {last_page - 1}...")
+
     webpage = select_page(main_body, '/page/', page_number)
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
+
     for link_number, link in enumerate(links):
+
         driver.get(link)
         html_content = driver.page_source
         soup = BeautifulSoup(html_content, 'html.parser')
+
         title = soup.find("h1", "entry-title").get_text()
+
         date_timestamp = soup.find("time")['datetime']
+
         text_list = collect_text(soup)
-        sorted_text = filter_text(text_list, phrases_to_remove_after)
+
+        sorted_text = filter_text(text_list, remove_phrases)
         scraped_list.append({'url': link,
                              'title': title,
                              'date': convert_timestamp(date_timestamp),
@@ -87,4 +95,4 @@ for page_number in range(1, last_page): # max(last_page) == 1035
         time.sleep(random.randint(0, 3))
         print(f"\tProcessed link {link_number} of {len(links)} on page {page_number}.")
 
-text_df = pd.DataFrame(scraped_list)
+scraped_df = pd.DataFrame(scraped_list)

@@ -49,32 +49,32 @@ def collect_all_links():
     return all_links
 
 
-def collect_text(soup):
-    html_element = soup.find('html')
+def collect_text(beautiful_soup):
+    html_element = beautiful_soup.find('html')
     page_type = html_element['class']
     if page_type[0] == 'ArticlePage':
-        sub_headline = soup.find('div', class_=re.compile(r'-subHeadline$')).get_text()
-        entry_content = soup.find('article', class_=re.compile(r"-mainContent$"))
-        text_list = [i.get_text() for i in entry_content.find_all('p')]
-        text_list.insert(0, sub_headline)
+        sub_headline = beautiful_soup.find('div', class_=re.compile(r'-subHeadline$')).get_text()
+        entry_content = beautiful_soup.find('article', class_=re.compile(r"-mainContent$"))
+        text_data_list = [i.get_text() for i in entry_content.find_all('p')]
+        text_data_list.insert(0, sub_headline)
     else:
-        sub_headline = soup.find('div', class_=re.compile(r'-subHeadline$')).get_text()
-        entry_content = soup.find('div', class_=re.compile(r"-mainContent$"))
-        text_list = [i.get_text() for i in entry_content.find_all('p')]
-        text_list.insert(0, sub_headline)
-    return text_list
+        sub_headline = beautiful_soup.find('div', class_=re.compile(r'-subHeadline$')).get_text()
+        entry_content = beautiful_soup.find('div', class_=re.compile(r"-mainContent$"))
+        text_data_list = [i.get_text() for i in entry_content.find_all('p')]
+        text_data_list.insert(0, sub_headline)
+    return text_data_list
 
 
 def convert_to_datetime(date_string):
-    date_str = date_string[:-1]
-    date_obj = datetime.fromisoformat(date_str)
-    return date_obj
+    date_str_without_z = date_string[:-1]
+    date_object = datetime.fromisoformat(date_str_without_z)
+    return date_object
 
 
-links = collect_all_links()
+links_list = collect_all_links()
 
 scraped_list = []
-for link in links:
+for link_number, link in enumerate(links_list):
     print(link)
 
     r = requests.get(link)
@@ -93,5 +93,8 @@ for link in links:
                          'date': date_obj,
                          'text': ' '.join(text_list)
                          })
+
+    time.sleep(random.randint(1, 2))
+    print(f"\tProcessed link {link_number+1} of {len(links_list)}")
 
 scraped_df = pd.DataFrame(scraped_list)
