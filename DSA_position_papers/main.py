@@ -88,6 +88,16 @@ def collect_text_from_pdf(paths):
 pdf_paths = get_files_from_folder('Task_2_DSA_position_papers')
 text_list = collect_text_from_pdf(pdf_paths)
 text_df = pd.DataFrame(text_list)
-text_df['len'] = [len(text) for text in text_df.text]
+text_df['len'] = text_df.text.apply(len)
 
-text_df.to_csv('DSA_position_paper_improved.csv')
+def fix_corrupted_parsing(df, index):
+    df.loc[index, 'text'] = extract_text_from_image(df.loc[index, 'link'])
+
+fix_corrupted_parsing(text_df, 315)
+fix_corrupted_parsing(text_df, 320)
+fix_corrupted_parsing(text_df, 376)
+fix_corrupted_parsing(text_df, 148)
+fix_corrupted_parsing(text_df, 506)
+
+
+text_df.drop(columns=['old_max_length', 'new_max_length']).to_csv('DSA_position_paper_improved.csv')
