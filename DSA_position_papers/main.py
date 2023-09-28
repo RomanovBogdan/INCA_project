@@ -1,7 +1,7 @@
-import PyPDF2
 import os
 import re
 import pandas as pd
+import PyPDF2
 import pytesseract
 from pdf2image import convert_from_path
 
@@ -18,22 +18,21 @@ def extract_text_from_pdf(file_path):
     return output_string
 
 
-def get_files_from_folder(folder_name):
+def get_pdf_files_from_folder(folder_name):
     links_list = []
     folders = os.listdir(os.getcwd() + '/' + folder_name)
     for folder in folders:
-        link = os.getcwd() + '/Task_2_DSA_position_papers/' + folder
+        link = os.getcwd() + '/Task_2/' + folder
         for folder_path, folders, files in os.walk(link):
             for file in files:
                 if '.pdf' in file:
-                    links_list.append(link + '/' + file)
+                    links_list.append(folder_path + '/' + file)
     return links_list
 
 
 def clean_text(text):
     text = text.strip()
-    text = re.sub('\n', '', text)
-    return text
+    return re.sub('\n', '', text)
 
 
 def extract_text_from_image(pdf_path):
@@ -42,8 +41,7 @@ def extract_text_from_image(pdf_path):
     for i, page in enumerate(pages):
         text_tmp = str(pytesseract.image_to_string(page))
         text += text_tmp
-        output_string = ' '.join(text.split())
-    return output_string
+    return ' '.join(text.split())
 
 
 def remove_links(text):
@@ -52,18 +50,18 @@ def remove_links(text):
     return re.sub(url_pattern, '', text)
 
 
-def remove_separators(text):
-    consecutive_chars_pattern = r'(.)\1{2,}'
-    return re.sub(consecutive_chars_pattern, ' ', text)
-
-
 def max_length(text):
     length = [len(element) for element in text.split()]
     length.sort(reverse=True)
     return length[:5]
 
 
-def collect_text_from_pdf(paths):
+def remove_separators(text):
+    consecutive_chars_pattern = r'(.)\1{2,}'
+    return re.sub(consecutive_chars_pattern, ' ', text)
+
+
+def get_text_from_pdf(paths):
     data_list = []
     for i, pdf_path in enumerate(paths):
         print(i)
@@ -85,19 +83,16 @@ def collect_text_from_pdf(paths):
     return data_list
 
 
-pdf_paths = get_files_from_folder('Task_2_DSA_position_papers')
-text_list = collect_text_from_pdf(pdf_paths)
+pdf_paths = get_pdf_files_from_folder('Task_2')
+text_list = get_text_from_pdf(pdf_paths)
 text_df = pd.DataFrame(text_list)
 text_df['len'] = text_df.text.apply(len)
 
 def fix_corrupted_parsing(df, index):
     df.loc[index, 'text'] = extract_text_from_image(df.loc[index, 'link'])
 
-fix_corrupted_parsing(text_df, 315)
-fix_corrupted_parsing(text_df, 320)
-fix_corrupted_parsing(text_df, 376)
-fix_corrupted_parsing(text_df, 148)
-fix_corrupted_parsing(text_df, 506)
+fix_corrupted_parsing(text_df, 18)
+fix_corrupted_parsing(text_df, 87)
+fix_corrupted_parsing(text_df, 221)
 
-
-text_df.drop(columns=['old_max_length', 'new_max_length']).to_csv('DSA_position_paper_improved.csv')
+# text_df.drop(columns=['folder', 'old_max_length', 'new_max_length']).to_csv('DSA_DMA_position_paper_improved.csv')
