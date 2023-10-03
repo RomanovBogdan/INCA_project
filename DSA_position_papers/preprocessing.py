@@ -53,8 +53,15 @@ def lemmatization(tokens):
 def keep_english_words(text):
     return ' '.join(word for word in text.split() if word in english_words)
 
-
 def preprocess_text(text):
+    text = remove_urls(text)
+    text = remove_numbers(text)
+    text = remove_punctuation(text)
+    text = remove_whitespace(text)
+
+    return text.lower()
+
+def tokenize_lemmatize(text):
     text = remove_urls(text)
     text = remove_numbers(text)
     text = remove_punctuation(text)
@@ -65,6 +72,15 @@ def preprocess_text(text):
 
 
 get_additional_punctuation(df, 'text')
-df['preprocessed_data'] = df['text'].apply(preprocess_text)
+df['lowercased_no_special_chars'] = df['text'].apply(preprocess_text)
+df['tokenized_lemmatized'] = df['text'].apply(tokenize_lemmatize)
 
-# df.drop(columns=['method', 'len']).to_csv('DSA_DMA_preprocessed_data.csv')
+df = df.rename(columns={'link': 'folder_path',
+                        'file_name': "Filename",
+                        'text': 'pdf_text'})
+
+
+df_scraped = pd.read_csv('DSA_DMA_scraped_data.csv', index_col=0)
+
+df = df_scraped.merge(df, on='Filename', how='left')
+df.drop(columns=['method', 'len', 'folder_path']).to_csv('DSA_DMA_merged_preprocessed_data.csv')
