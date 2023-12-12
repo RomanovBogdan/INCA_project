@@ -52,20 +52,34 @@ def filter_text(text_data_list, phrases_to_remove_after):
     return text_data_list
 
 
+def parse_datetime(s):
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        try:
+            return datetime.utcfromtimestamp(int(s))
+        except ValueError:
+            raise ValueError(f"Provided string '{s}' is neither a valid ISO 8601 string nor a Unix timestamp.")
+
+
 main_body = 'https://news.microsoft.com/category/press-releases'
 scraped_list = []
+exceptions = ['100000-hours-over-skype-felicidades', 'oversight-board']
+
 remove_phrases = [
-    "For more information, press only:",
-    "For further information",
-    "Editor’s note ",
+    'For more information, ',
+    'For further information',
+    # "Editor’s note ",
+    'About Microsoft',
     'Note to editors: '
-    "Media Contacts"
+    'Media Contacts',
+    'Microsoft (Nasdaq “MSFT” @microsoft)'
 ]
 
 last_page = 1036
 driver = start_driver()
 
-for page_number in range(1, last_page):
+for page_number in range(143, last_page):
     # max(last_page) == 1035
     print(f"Processing page {page_number} of {last_page - 1}...")
 
@@ -73,25 +87,45 @@ for page_number in range(1, last_page):
     links = collect_links(driver, webpage, By.CLASS_NAME, 'f-post-link')
 
     for link_number, link in enumerate(links):
+        if any(except_part in link for except_part in exceptions):
+            title = '-'
+            date = '-'
+            text_list = []
+            print('Skype happened')
+            continue
 
-        driver.get(link)
-        html_content = driver.page_source
-        soup = BeautifulSoup(html_content, 'html.parser')
+        else:
+            driver.get(link)
+            html_content = driver.page_source
+            soup = BeautifulSoup(html_content, 'html.parser')
 
-        title = soup.find("h1", "entry-title").get_text()
+            message = soup.find('p').get_text()
 
-        date_timestamp = soup.find("time")['datetime']
+            if 'too many times' not in message:
+                date_timestamp = soup.find("time")['datetime']
+                date = parse_datetime(date_timestamp)
 
-        text_list = collect_text(soup)
+                title = soup.find("h1", "entry-title").get_text()
+
+                summary = ' '
+                try:
+                    summary = soup.find('h3').get_text() + ' '
+                except AttributeError:
+                    print('\t--There is no summary section')
+
+                text_list = collect_text(soup)
+                text_list.insert(0, summary)
 
         scraped_list.append({'url': link,
                              'title': title,
-                             'date': convert_timestamp(date_timestamp),
-                             'text': ''.join(text_list),
-                             'sorted_text': ''.join(filter_text(text_list, remove_phrases))
+                             'date': date,
+                             'text': ' '.join(text_list),
+                             'sorted_text': ' '.join(filter_text(text_list, remove_phrases))
                              })
 
-        time.sleep(random.randint(0, 3))
-        print(f"\tProcessed link {link_number} of {len(links)} on page {page_number}.")
+        time.sleep(random.randint(1, 2))
+        print(f"\tProcessed link {link_number+1} of {len(links)} on page {page_number}.")
 
 scraped_df = pd.DataFrame(scraped_list)
+scraped_df.to_csv('./new_INCA_data/MicrosoftNews_data.csv')
+scraped_df.shape

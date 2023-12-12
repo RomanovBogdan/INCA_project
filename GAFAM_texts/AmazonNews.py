@@ -6,6 +6,7 @@ import requests
 from selenium import webdriver
 from datetime import datetime
 from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 
@@ -33,35 +34,46 @@ def press_next_page_button(driver):
     next_page.click()
 
 
-def collect_all_links():
+def collect_all_news_links():
     main_body = 'https://www.aboutamazon.com/news'
     driver = start_driver()
     driver.get(main_body)
     all_links = []
-    i = 0
-    # CHANGE WHILE CONDITION
-    while i != 5:
+    button_element = driver.find_element(By.CLASS_NAME, 'SearchResultsModuleResults-nextPage-button')
+    while button_element:
         collect_links(driver, all_links)
-        print(i, len(all_links))
-        press_next_page_button(driver)
+
+        try:
+            press_next_page_button(driver)
+        except NoSuchElementException:
+            print('No more pages to navigate to')
+            break
+
         time.sleep(random.randint(1, 4))
-        i += 1
+        print(len(all_links))
     return all_links
 
 
 def collect_text(beautiful_soup):
+    sub_headline = ''
+    opening_par = ''
+
     html_element = beautiful_soup.find('html')
     page_type = html_element['class']
     if page_type[0] == 'ArticlePage':
-        sub_headline = beautiful_soup.find('div', class_=re.compile(r'-subHeadline$')).get_text()
         entry_content = beautiful_soup.find('article', class_=re.compile(r"-mainContent$"))
-        text_data_list = [i.get_text() for i in entry_content.find_all('p')]
-        text_data_list.insert(0, sub_headline)
     else:
-        sub_headline = beautiful_soup.find('div', class_=re.compile(r'-subHeadline$')).get_text()
         entry_content = beautiful_soup.find('div', class_=re.compile(r"-mainContent$"))
-        text_data_list = [i.get_text() for i in entry_content.find_all('p')]
-        text_data_list.insert(0, sub_headline)
+    try:
+        sub_headline = beautiful_soup.find('div', class_=re.compile(r'-subHeadline$')).get_text()
+        opening_par = beautiful_soup.find('div', 'RichTextArticleBody').get_text()
+    except AttributeError:
+        print('No sub headline')
+    text_data_list = [i.get_text() for i in entry_content.find_all(['p', 'h2', 'cms-headings-h2'])]
+    if len(text_data_list) == 0:
+        text_data_list = [i.get_text() for i in entry_content.find_all(['li', 'ListicleItem-title'])]
+        text_data_list.insert(0, opening_par)
+    text_data_list.insert(0, sub_headline)
     return text_data_list
 
 
@@ -71,10 +83,10 @@ def convert_to_datetime(date_string):
     return date_object
 
 
-links_list = collect_all_links()
+links_list = pd.read_csv('./new_INCA_data/links/AmazonNews_links.csv', index_col=0)
 
 scraped_list = []
-for link_number, link in enumerate(links_list):
+for link_number, link in enumerate(links_list['0']):
     print(link)
 
     r = requests.get(link)
@@ -83,8 +95,16 @@ for link_number, link in enumerate(links_list):
     title = soup.find('h1').get_text()
 
     timestamp_element = soup.find('bsp-timestamp')
-    date_str = timestamp_element['data-timestamp-iso']
-    date_obj = convert_to_datetime(date_str)
+    date_obj = ''
+    try:
+        date_str = timestamp_element['data-timestamp']
+        try:
+            date_obj = convert_to_datetime(date_str)
+        except ValueError:
+            date_obj = datetime.utcfromtimestamp(int(date_str)/1000)
+    except:
+        date_str = timestamp_element['data-timestamp-iso']
+        date_obj = convert_to_datetime(date_str)
 
     text_list = collect_text(soup)
 
@@ -98,3 +118,4 @@ for link_number, link in enumerate(links_list):
     print(f"\tProcessed link {link_number+1} of {len(links_list)}")
 
 scraped_df = pd.DataFrame(scraped_list)
+scraped_df.to_csv('new_INCA_data/AmazonNews_data.csv')

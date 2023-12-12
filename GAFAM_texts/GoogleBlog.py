@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 scraped_list = []
-last_cursor = 3
+last_cursor = 711
 
 for cursor in range(1, last_cursor): # max(last_cursor) == 710
     print(f"Processing page {cursor} of {last_cursor - 1}...")
@@ -19,22 +19,22 @@ for cursor in range(1, last_cursor): # max(last_cursor) == 710
 
         r = requests.get(result['full_url'])
         soup = BeautifulSoup(r.content, 'html.parser')
+
+        try:
+            summary = soup.find('p', 'article-meta__abstract-text').get_text()
+        except AttributeError:
+            summary = ''
+
         main_elements = soup.find_all('div', attrs={'class': 'rich-text'})
-        text = ' '.join([i.get_text() for i in main_elements])
+        text_list = [i.get_text() for i in main_elements]
+        text_list.insert(0, summary)
 
         scraped_list.append({'url': result['full_url'],
                              'title': result['headline'],
                              'date': datetime.strptime(date[0], '%Y-%m-%d'),
-                             'text': text
+                             'text': ' '.join(text_list)
                              })
         print(f"\tProcessed link {article_number+1} of {len(json_response['results'])} on page {cursor}.")
 
-text_df = pd.DataFrame(scraped_list)
-
-for page_num in range(200, 230):
-    response = requests.get(f'https://blogs.microsoft.com/page/{page_num}/')
-    if response.status_code != 200:
-        print(f'The max page is {page_num}')
-        break
-    else:
-        print('Not yet')
+scraped_df = pd.DataFrame(scraped_list)
+scraped_df.to_csv('new_INCA_data/GoogleBlog_data.csv')

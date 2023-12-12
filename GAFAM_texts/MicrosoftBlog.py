@@ -42,7 +42,7 @@ def collect_text(soup):
 
 scraped_list = []
 main_body = 'https://blogs.microsoft.com/'
-last_page = 4
+last_page = 228
 
 driver = start_driver()
 for page_number in range(1, last_page):  # 227 is the MAX value
@@ -53,17 +53,24 @@ for page_number in range(1, last_page):  # 227 is the MAX value
         driver.get(link)
         html_content = driver.page_source
         soup = BeautifulSoup(html_content, 'html.parser')
-        title = soup.find("h1", "entry-title").get_text()
-        date_str = soup.find("time")['datetime']
-        text_list = collect_text(soup)
+        try:
+            title = soup.find("h1", "entry-title").get_text()
+            date_str = soup.find("time")['datetime']
+            date = datetime.strptime(date_str, '%Y-%m-%d')
+            text_list = collect_text(soup)
+        except AttributeError:
+            title = '-'
+            date_str = '-'
+            text_list = []
 
         scraped_list.append({'url': link,
                              'title': title,
-                             'date': datetime.strptime(date_str, '%Y-%m-%d'),
+                             'date': date,
                              'text': ' '.join(text_list)
                              })
         print(f"\tProcessed link {link_number} of {len(links)} on page {page_number}.")
-
         time.sleep(random.randint(0, 3))
 
-text_df = pd.DataFrame(scraped_list)
+scraped_df = pd.DataFrame(scraped_list)
+scraped_df.to_csv('new_INCA_data/MicrosoftBlog_data.csv')
+

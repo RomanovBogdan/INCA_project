@@ -5,8 +5,9 @@ import pandas as pd
 import requests
 from selenium import webdriver
 from datetime import datetime
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import NoSuchElementException
 from bs4 import BeautifulSoup
 
 
@@ -33,19 +34,24 @@ def press_next_page_button(driver):
     next_page.click()
 
 
-def collect_all_links():
+def collect_all_news_links():
     main_body = 'https://press.aboutamazon.com/press-release-archive'
     driver = start_driver()
     driver.get(main_body)
     all_links = []
-    i = 0
-    # CHANGE WHILE CONDITION
-    while i != 20:
+    button_element = driver.find_element(By.CLASS_NAME, 'SearchResultsModuleResults-nextPage-button')
+
+    while button_element:
         collect_links(driver, all_links)
-        print(i, len(all_links))
-        press_next_page_button(driver)
+
+        try:
+            press_next_page_button(driver)
+        except NoSuchElementException:
+            print('No more pages to navigate to')
+            break
+
         time.sleep(random.randint(1, 4))
-        i += 1
+        print(len(all_links))
     return all_links
 
 
@@ -68,8 +74,7 @@ def filter_text(text_list, phrases_to_remove_after):
     return text_list
 
 
-links = collect_all_links()
-
+links_list = pd.read_csv('new_INCA_data/links/AmazonPress_links.csv', index_col=0)
 
 scraped_list = []
 phrases_to_remove_after = [
@@ -78,24 +83,25 @@ phrases_to_remove_after = [
     'About\xa0Amazon'
 ]
 
-for link in links:
+for link_number, link in enumerate(links_list['0']):
     print(link)
 
     r = requests.get(link)
     soup = BeautifulSoup(r.content, "html.parser")
     try:
         title = soup.find('h1').get_text()
-
         timestamp_element = soup.find('bsp-timestamp')
         date_str = timestamp_element['data-timestamp-iso']
         date_obj = convert_to_datetime(date_str)
 
         text_list = collect_text(soup)
+        sorted_text_list = filter_text(text_list, phrases_to_remove_after)
 
-    except AttributeError:
-        title = soup.find('module-details_title')
-
-    sorted_text_list = filter_text(text_list, phrases_to_remove_after)
+    except KeyError:
+        date_obj = '-'
+        title = soup.find('h1').get_text()
+        text_list = collect_text(soup)
+        sorted_text_list = filter_text(text_list, phrases_to_remove_after)
 
     scraped_list.append({'url': link,
                          'title': title,
@@ -104,4 +110,9 @@ for link in links:
                          'sorted_text': ' '.join(sorted_text_list)
                          })
 
+    time.sleep(random.randint(1, 2))
+    print(f"\tProcessed link {link_number+1} of {len(links_list)}")
+
 scraped_df = pd.DataFrame(scraped_list)
+scraped_df.to_csv('new_INCA_data/AmazonPress_data_missing_data.csv')
+
